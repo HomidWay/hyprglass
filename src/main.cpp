@@ -118,14 +118,14 @@ static bool shouldGlassLayer(PHLLS layerSurface) {
     const auto& ns = layerSurface->m_namespace;
 
     // Exclusion takes priority
-    if (g_pGlobalState->layerNamespaceExclude.contains(ns))
+    if (matchesAnyPattern(g_pGlobalState->layerNamespaceExclude, ns))
         return false;
 
     const auto& include = g_pGlobalState->layerNamespaceFilter;
     if (include.empty())
         return true;
 
-    return include.contains(ns);
+    return matchesAnyPattern(include, ns);
 }
 
 using renderLayerFn = void (*)(Render::IHyprRenderer*, PHLLS, PHLMONITOR, const Time::steady_tp&, bool, bool);

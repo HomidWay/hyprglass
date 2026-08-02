@@ -52,9 +52,8 @@ std::string CGlassLayerSurface::resolvePresetName() const {
         const auto layerSurface = m_layerSurface.lock();
         if (layerSurface) {
             const auto& nsPresets = g_pGlobalState->layerNamespacePresets;
-            auto it = nsPresets.find(layerSurface->m_namespace);
-            if (it != nsPresets.end())
-                return it->second;
+            if (const auto* preset = findByPattern(nsPresets, layerSurface->m_namespace))
+                return *preset;
         }
 
         const auto& config = g_pGlobalState->config;
@@ -143,7 +142,8 @@ void CGlassLayerSurface::sampleAndRedirect(PHLMONITOR monitor, float alpha) {
                              layerSurface->sizeAnimation()->isBeingAnimated() ||
                              layerSurface->alpha()[Desktop::View::LS_ALPHA_FADE]->isBeingAnimated() ||
                              (activeWs && activeWs->m_renderOffset->isBeingAnimated());
-    const bool backgroundChanged = !m_hasCachedSample ||
+    const bool forceLive = matchesAnyPattern(g_pGlobalState->layerNamespaceForceLive, layerSurface->m_namespace);
+    const bool backgroundChanged = forceLive || !m_hasCachedSample ||
                                    currentGeneration != m_lastSceneGeneration ||
                                    isAnimating;
 
@@ -248,9 +248,8 @@ void CGlassLayerSurface::compositeAndRestore(PHLMONITOR monitor, float alpha) {
     int monitorHeight = static_cast<int>(monitor->m_transformedSize.y);
 
     float maskThreshold = 0.001f;
-    auto threshIt = g_pGlobalState->layerNamespaceMaskThresholds.find(layerSurface->m_namespace);
-    if (threshIt != g_pGlobalState->layerNamespaceMaskThresholds.end())
-        maskThreshold = threshIt->second;
+    if (const auto* thresh = findByPattern(g_pGlobalState->layerNamespaceMaskThresholds, layerSurface->m_namespace))
+        maskThreshold = *thresh;
 
     // The temp FBO stores the layer after Hyprland applies fade alpha. Keep
     // mask_threshold relative to the layer's content alpha, otherwise fade-out

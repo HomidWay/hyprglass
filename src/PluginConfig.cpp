@@ -477,6 +477,7 @@ struct SPendingLayer {
     std::string preset;
     float       maskThreshold = -1.0f;
     bool        exclude       = false;
+    bool        forceLive     = false;
 };
 
 static std::vector<SPendingLayer> s_pendingLayers;
@@ -503,6 +504,11 @@ static int handleLuaLayer(lua_State* L) {
         if (lua_isnumber(L, -1))
             entry.maskThreshold = static_cast<float>(lua_tonumber(L, -1));
         lua_pop(L, 1);
+
+        lua_getfield(L, 2, "live");
+        if (lua_isboolean(L, -1) && lua_toboolean(L, -1))
+            entry.forceLive = true;
+        lua_pop(L, 1);
     }
 
     s_pendingLayers.push_back(std::move(entry));
@@ -524,6 +530,8 @@ void commitPendingLayers() {
                 g_pGlobalState->layerNamespacePresets[entry.ns] = entry.preset;
             if (entry.maskThreshold >= 0.0f)
                 g_pGlobalState->layerNamespaceMaskThresholds[entry.ns] = entry.maskThreshold;
+            if (entry.forceLive)
+                g_pGlobalState->layerNamespaceForceLive.insert(entry.ns);
         }
     }
     s_pendingLayers.clear();

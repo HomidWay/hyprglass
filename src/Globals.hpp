@@ -17,6 +17,39 @@
 
 class CGlassDecoration;
 
+// Layer namespaces are matched exactly by default. A pattern ending in '*' is
+// treated as a prefix match, so e.g. "noctalia-background-*" matches
+// "noctalia-background-DP-3" on any output without hardcoding the output name.
+inline bool namespaceMatches(const std::string& pattern, const std::string& ns) {
+    if (pattern.empty())
+        return false;
+    if (pattern.back() == '*')
+        return ns.compare(0, pattern.size() - 1, pattern, 0, pattern.size() - 1) == 0;
+    return pattern == ns;
+}
+
+inline bool matchesAnyPattern(const std::unordered_set<std::string>& patterns, const std::string& ns) {
+    if (patterns.contains(ns)) // fast path: exact match, no scan
+        return true;
+    for (const auto& pattern : patterns) {
+        if (pattern.find('*') != std::string::npos && namespaceMatches(pattern, ns))
+            return true;
+    }
+    return false;
+}
+
+template <typename T>
+inline const T* findByPattern(const std::unordered_map<std::string, T>& map, const std::string& ns) {
+    auto it = map.find(ns); // fast path: exact match, no scan
+    if (it != map.end())
+        return &it->second;
+    for (const auto& [pattern, value] : map) {
+        if (pattern.find('*') != std::string::npos && namespaceMatches(pattern, ns))
+            return &value;
+    }
+    return nullptr;
+}
+
 struct SGlobalState {
     std::vector<WP<CGlassDecoration>> decorations;
     CShaderManager                    shaderManager;
@@ -40,6 +73,11 @@ struct SGlobalState {
     std::unordered_map<std::string, std::string> layerNamespacePresets;
     // Per-namespace mask alpha threshold (namespace → threshold, default 0.001)
     std::unordered_map<std::string, float> layerNamespaceMaskThresholds;
+    // Namespaces that must always re-sample + re-blur every frame, bypassing the
+    // sceneGeneration cache. Use for layers sitting above an animated layer
+    // surface (video wallpaper, live background) that never bumps sceneGeneration
+    // on its own, which otherwise leaves the glass showing a stale blurred frame.
+    std::unordered_set<std::string> layerNamespaceForceLive;
 
     // Per-monitor generation counter, incremented when the scene behind layers
     // changes on that monitor. Layer surfaces compare to their cached value to
